@@ -45,6 +45,12 @@ services:
       sh -c "
         echo 'Waiting for database to be ready...' &&
         sleep 5 &&
+        echo 'Creating test reports directory...' &&
+        mkdir -p test_reports &&
+        echo 'Initializing fresh test database...' &&
+        python -c 'from db.DbModels import Base; from db.DbConfig import Engine; Base.metadata.drop_all(bind=Engine); Base.metadata.create_all(bind=Engine)' &&
         echo 'Running tests...' &&
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S) &&
+        echo 'Test run timestamp: ' $TIMESTAMP &&
         pytest tests/ -v --tb=short --junitxml=test_reports/junit.xml --html=test_reports/report.html --self-contained-html
       "
