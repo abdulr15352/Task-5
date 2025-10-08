@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, HTTPException, Request, Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from utils.constants import Endpoints, ResponseMessages
 from utils.security import hash_password, verify_password, create_access_token, decode_access_token, verify_admin_token
 from .UserSchemas import UserSchema, UserLoginSchema, UserRegisterResponseSchema, CandidateSchema, VotingSchema, UserUpdateSchema
@@ -35,7 +35,7 @@ def create_user(user: UserSchema, db=Depends(get_db)):
 
 
 @UserRouter.get(Endpoints.LOGIN)
-def login_user(user: UserLoginSchema, db=Depends(get_db)):
+def login_user(user: UserLoginSchema, db: Session = Depends(get_db)):
     """
     Endpoint to log in a user.
     """
@@ -52,7 +52,7 @@ def login_user(user: UserLoginSchema, db=Depends(get_db)):
         "user_id": existing_user.id,
         "email": existing_user.email}
     token = create_access_token(data=payload)
-    return {"message": ResponseMessages.USER_LOGGED_IN, "token": token, "authentication_type" :"Bearer"}
+    return {"message": ResponseMessages.USER_LOGGED_IN, "token": token, "authentication_type": "Bearer"}
 
 
 
@@ -154,10 +154,15 @@ def add_candidate(new_candidate: CandidateSchema, db=Depends(get_db)):
 @AdminRouter.get(Endpoints.ADD_CANDIDATE, dependencies=[Depends(verify_admin_token)])
 def get_vote_counts(db=Depends(get_db)):
     # Aggregate votes by candidate_id and candidate name
-    results = db.query(CandidateDBModel.name, func.count(VoteDBModel.id).label("vote_count"))\
-        .outerjoin(VoteDBModel, CandidateDBModel.id == VoteDBModel.candidate_id)\
-        .group_by(CandidateDBModel.id).all()
-    return [{"name": name, "vote_count": count} for name, count in results]
+    results = db.query(
+        CandidateDBModel.id,
+        CandidateDBModel.name,
+        CandidateDBModel.party,
+        func.count(VoteDBModel.id).label("vote_count")
+    ).outerjoin(VoteDBModel, CandidateDBModel.id == VoteDBModel.candidate_id)\
+     .group_by(CandidateDBModel.id).all()
+    return [{"candidate_id": candidate_id, "candidate_name": name, "party": party, "vote_count": count} 
+            for candidate_id, name, party, count in results]
 
 # update candidate
 @AdminRouter.put(f"{Endpoints.ADD_CANDIDATE}/{{candidate_id}}", dependencies=[Depends(verify_admin_token)])

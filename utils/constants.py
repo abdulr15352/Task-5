@@ -11,7 +11,7 @@ class Endpoints:
 
 class ResponseMessages:
     WELCOME = "Welcome to the Voting App!"
-    HEALTHY = "The service is healthy"
+    HEALTHY = "Healthy"
     USER_CREATED = "User created successfully"
     USER_LOGGED_IN = "User logged in successfully"
     USER_ALREADY_EXISTS = "User with this email already exists"

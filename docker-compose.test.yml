@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   test_voting_db:
     image: postgres:15
@@ -9,20 +7,30 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=voting_db_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   
   test_runner:
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
-      - test_voting_db
+      test_voting_db:
+        condition: service_healthy
     environment:
       # environment variables for the test runner
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - JWT_ALGORITHM=${JWT_ALGORITHM}
-      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES}
+      - JWT_EXPIRATION_MINUTES=${JWT_EXPIRATION_MINUTES}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=voting_db_test
+      - POSTGRES_HOST=test_voting_db
+      - POSTGRES_PORT=5432
+      - ADMIN_API_TOKEN=${ADMIN_API_TOKEN}
       
       # Test specific environment variables
       - RUNTIME=test
@@ -35,3 +43,8 @@ services:
       - ./test_reports:/app/test_reports # Volume for test reports
     command: >
       sh -c "
+        echo 'Waiting for database to be ready...' &&
+        sleep 5 &&
+        echo 'Running tests...' &&
+        pytest tests/ -v --tb=short --junitxml=test_reports/junit.xml --html=test_reports/report.html --self-contained-html
+      "
