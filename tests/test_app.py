@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from main import voting_app
-from utils.constants import Endpoints
+from utils.constants import Endpoints, ResponseMessages
 
 client = TestClient(voting_app)
 
@@ -158,6 +158,78 @@ def test_get_vote_counts():
         assert vote_count["candidate_id"] == vote_counts[vote_count["candidate_id"]]["candidate_id"]
         assert vote_count["candidate_name"] == vote_counts[vote_count["candidate_id"]]["candidate_name"]
         assert vote_count["vote_count"] == vote_counts[vote_count["candidate_id"]]["vote_count"]
+
+
+def test_get_user_info():
+    """
+    Test getting user information.
+    """
+    email, name, password, token = test_users[0]
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/users/info", headers=headers)
+    assert response.status_code == 200
+    assert "user_id" in response.json()
+    assert response.json()["email"] == email
+
+
+def test_update_user_info():
+    """
+    Test updating user information.
+    """
+    email, name, password, token = test_users[0]
+    update_data = {"name": "Updated Name"}
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.patch("/users/info", json=update_data, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["message"] == ResponseMessages.USER_UPDATED
+    assert response.json()["user"]["name"] == "Updated Name"
+
+
+def test_delete_user():
+    """
+    Test deleting a user.
+    """
+    email, name, password, token = test_users[-1]  # Use the last user
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.delete("/users/delete", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["message"] == ResponseMessages.USER_DELETED
+
+
+def test_update_candidate():
+    """
+    Test updating a candidate (admin only).
+    """
+    client.headers = {"x-api-key": "abdul_is_admin"}
+    candidate_id = 1
+    update_data = {"name": "Updated Candidate", "party": "Updated Party"}
+    response = client.put(f"/admin{Endpoints.ADD_CANDIDATE}/{candidate_id}", json=update_data)
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated Candidate"
+    assert response.json()["party"] == "Updated Party"
+
+
+def test_delete_candidate():
+    """
+    Test deleting a candidate (admin only).
+    """
+    client.headers = {"x-api-key": "abdul_is_admin"}
+    candidate_id = 4  # Use a candidate with no votes
+    response = client.delete(f"/admin{Endpoints.ADD_CANDIDATE}/{candidate_id}")
+    assert response.status_code == 200
+    assert response.json()["message"] == ResponseMessages.CANDIDATE_DELETED
+
+
+def test_get_candidate_vote_count():
+    """
+    Test getting vote count for a specific candidate (admin only).
+    """
+    client.headers = {"x-api-key": "abdul_is_admin"}
+    candidate_id = 1
+    response = client.get(f"/admin{Endpoints.ADD_CANDIDATE}/{candidate_id}")
+    assert response.status_code == 200
+    assert "name" in response.json()
+    assert "vote_count" in response.json()
 
 
 if __name__ == "__main__":
